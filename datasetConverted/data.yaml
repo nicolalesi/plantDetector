@@ -1,0 +1,5 @@
+train: ./datasetConverted/train  # Percorso per il set di addestramento
+val: ./datasetConverted/val      # Percorso per il set di validazione
+test: ./datasetConverted/test    # Percorso per il set di test
+nc: 2                           # Numero di classi
+names: ['crop', 'weed']          # Nomi delle classi
