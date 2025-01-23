@@ -1,73 +1,116 @@
+import tkinter as tk
+from tkinter import filedialog, messagebox
+from PIL import Image, ImageTk
 import tensorflow as tf
 import numpy as np
-import matplotlib.pyplot as plt
-from tensorflow.keras.preprocessing import image
 import cv2
-import numpy as np
-import matplotlib.pyplot as plt 
+import os
 
-# Load your trained model
-model = tf.keras.models.load_model('./plant_disease_model_inception_T2.h5')  # Replace 'your_model_directory' with the path to your saved model
+# Load the model
+model = tf.keras.models.load_model('./plantsDetection.h5')
+class_names = ['crop', 'weed'] 
 
-# Load and preprocess your image
-img_path = './datasets/pianteInfestanti/test/ridderzuring_3126_jpg.rf.8980b3ae3ec4ecd023aab5bc54c26089.jpg'  # Replace 'path_to_your_image.jpg' with your image file path
-img = image.load_img(img_path, target_size=(139, 139))  # Resize to match the input size of your model
+def process_image(img_path):
+    """
+    Preprocesses an image for model prediction.
 
-# Load and preprocess your image
-img_path = './datasets/pianteInfestanti/test/ridderzuring_3126_jpg.rf.8980b3ae3ec4ecd023aab5bc54c26089.jpg'  # Replace with the path to your image file
-img = tf.keras.preprocessing.image.load_img(img_path, target_size=(139, 139))  # Load the image and resize
-img_array = tf.keras.preprocessing.image.img_to_array(img)  # Convert image to array
-img_array = tf.image.resize(img_array, (139, 139))  # Resize the image to match the model's input size
-img_array = tf.expand_dims(img_array, axis=0)  # Add a batch dimension
+    Args:
+        img_path: Path to the image file.
 
-# Get the predictions for the image
-class_names=['crop','weed']
-predictions = model.predict(img_array)
-predicted_class = tf.argmax(predictions[0])
-print(f"La classe predetta è: {predicted_class} ({class_names[predicted_class]})")
+    Returns:
+        A NumPy array representing the preprocessed image.
+    """
+    img = tf.keras.preprocessing.image.load_img(img_path, target_size=(139, 139))
+    img_array = tf.keras.preprocessing.image.img_to_array(img)
+    img_array = tf.image.resize(img_array, (139, 139))
+    img_array = tf.expand_dims(img_array, axis=0)
+    return img_array
 
+def generate_heatmap(img_array):
+    """
+    Generates a heatmap for the predicted class.
 
-# Get the predictions for the image
-predictions = model.predict(img_array)
-predicted_class = np.argmax(predictions[0])
+    Args:
+        img_array: A NumPy array representing the preprocessed image.
 
-# Generate the heatmap
-last_conv_layer = model.get_layer('mixed10')  
-heatmap_model = tf.keras.models.Model(model.inputs, [last_conv_layer.output, model.output])
+    Returns:
+        A tuple containing the heatmap and the predicted class index.
+    """
+    predicted_class = np.argmax(model.predict(img_array)[0])
+    last_conv_layer = model.get_layer('mixed10') 
+    heatmap_model = tf.keras.models.Model(model.inputs, [last_conv_layer.output, model.output])
 
-with tf.GradientTape() as tape:
-    conv_outputs, predictions = heatmap_model(img_array)
-    loss = predictions[:, predicted_class]
+    with tf.GradientTape() as tape:
+        conv_outputs, predictions = heatmap_model(img_array)
+        loss = predictions[:, predicted_class]
 
-grads = tape.gradient(loss, conv_outputs)
-pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
-heatmap = tf.reduce_mean(tf.multiply(pooled_grads, conv_outputs), axis=-1)
-heatmap = np.maximum(heatmap, 0)
+    grads = tape.gradient(loss, conv_outputs)
+    pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
+    heatmap = tf.reduce_mean(tf.multiply(pooled_grads, conv_outputs), axis=-1)
+    heatmap = np.maximum(heatmap, 0)
 
-heatmap_resized = cv2.resize(heatmap, (img_array.shape[2], img_array.shape[1]))
+    heatmap_resized = cv2.resize(heatmap, (139, 139))
+    return heatmap_resized, predicted_class
 
-# Convert both arrays to the same data type (e.g., unsigned 8-bit integer)
-img_array_uint8 = (img_array[0].numpy() * 255).astype(np.uint8)
-heatmap_resized_uint8 = (heatmap_resized * 255).astype(np.uint8)  # Adjust the range of heatmap values
+def load_and_predict(file_path):
+    """
+    Loads an image, performs prediction and heatmap generation,
+    and updates the GUI elements.
 
-# Overlay the heatmap on the original image
-heatmap_resized_uint8 = cv2.applyColorMap(heatmap_resized_uint8, cv2.COLORMAP_JET)
-superimposed_img = cv2.addWeighted(img_array_uint8, 0.6, heatmap_resized_uint8, 0.4, 0)
+    Args:
+        file_path: Path to the image file.
+    """
+    if not file_path:
+        return
 
-# Display the original image, heatmap, and overlay
-plt.figure(figsize=(12, 6))
+    try:
+        # Process the image
+        img_array = process_image(file_path) 
+        heatmap, predicted_class = generate_heatmap(img_array)
 
-plt.subplot(131)
-plt.imshow(img)
-plt.title('Original Image')
+        # Update label text
+        label_result.config(text=f"Predizione: {class_names[predicted_class]}")
 
-plt.subplot(132)
-plt.imshow(heatmap_resized_uint8)
-plt.title('Heatmap')
+        # Load and display original image
+        original_image = Image.open(file_path).resize((300, 300))
+        original_photo = ImageTk.PhotoImage(original_image)
+        label_original.config(image=original_photo)
+        label_original.image = original_photo
 
-plt.subplot(133)
-plt.imshow(superimposed_img)
-plt.title('Overlay')
+        # Generate and display heatmap
+        heatmap_uint8 = (heatmap * 255).astype(np.uint8)
+        heatmap_colored = cv2.applyColorMap(heatmap_uint8, cv2.COLORMAP_JET)
+        heatmap_image = Image.fromarray(cv2.cvtColor(heatmap_colored, cv2.COLOR_BGR2RGB))
+        heatmap_resized = heatmap_image.resize((300, 300))
+        heatmap_photo = ImageTk.PhotoImage(heatmap_resized)
+        label_heatmap.config(image=heatmap_photo)
+        label_heatmap.image = heatmap_photo
 
-plt.tight_layout()
-plt.show()
+    except Exception as e:
+        messagebox.showerror("Errore", f"Si è verificato un errore: {e}")
+
+# Create the main window
+window = tk.Tk()
+window.title("Rilevamento Malattie delle Piante")
+window.geometry("800x600")
+
+# Button to load image
+btn_load = tk.Button(window, text="Carica Immagine", command=lambda: load_and_predict(filedialog.askopenfilename(filetypes=[("Image files", "*.jpg *.jpeg *.png")])))
+btn_load.pack(pady=20)
+
+# Label to display prediction result
+label_result = tk.Label(window, text="Predizione: ", font=("Arial", 16))
+label_result.pack(pady=10)
+
+# Frame for images
+frame_images = tk.Frame(window)
+frame_images.pack(pady=20)
+
+# Labels to display original image and heatmap
+label_original = tk.Label(frame_images, text="Immagine Originale")
+label_original.pack(side=tk.LEFT, padx=20)
+label_heatmap = tk.Label(frame_images, text="Heatmap")
+label_heatmap.pack(side=tk.RIGHT, padx=20)
+
+# Start the GUI event loop
+window.mainloop()
