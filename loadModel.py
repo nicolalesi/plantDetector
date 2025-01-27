@@ -7,7 +7,7 @@ import cv2
 import os
 
 # Load the model
-model = tf.keras.models.load_model('./plantsDetection.h5')
+model = tf.keras.models.load_model('./modelliGenerati/mergedData_model.h5')
 class_names = ['crop', 'weed'] 
 
 def process_image(img_path):

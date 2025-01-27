@@ -18,7 +18,7 @@ import time
 
 import os
 
-directory = './datasets/pianteecolture/structured_data/train'
+directory = './datasets/MergedDataset/structured_data/train'
 contents = os.listdir(directory)
 num_of_dirs = len([name for name in contents if os.path.isdir(os.path.join(directory, name))])
 
@@ -32,7 +32,7 @@ from PIL import Image
 import os
 
 # Define the directory path
-directory_path = './datasets/pianteecolture/structured_data/train'
+directory_path = './datasets/MergedDataset/structured_data/train'
 
 # List all files in the directory
 file_names = os.listdir(directory_path)
@@ -95,7 +95,7 @@ train_datagen = ImageDataGenerator(
 )
 
 train_dataset = train_datagen.flow_from_directory(
-    './datasets/pianteecolture/structured_data/train',
+    './datasets/MergedDataset/structured_data/train',
     target_size=(139, 139),
     batch_size=batch_size,
     class_mode='categorical'
@@ -114,7 +114,7 @@ val_datagen = ImageDataGenerator(
 )
 
 val_dataset = val_datagen.flow_from_directory(
-    './datasets/pianteecolture/structured_data/valid',
+    './datasets/MergedDataset/structured_data/valid',
     target_size=(139, 139),
     batch_size=batch_size,
     class_mode='categorical'
@@ -183,7 +183,7 @@ plot_metrics(history)
 test_datagen = ImageDataGenerator(rescale=1./255)
 
 test_dataset = test_datagen.flow_from_directory(
-    './datasets/pianteecolture/structured_data/test',
+    './datasets/MergedDataset/structured_data/test',
     target_size=(139, 139),
     batch_size=batch_size,
     class_mode='categorical'
