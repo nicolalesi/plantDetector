@@ -6,67 +6,39 @@ import numpy as np
 import cv2
 import os
 
-# Load the model
-model = tf.keras.models.load_model('./modelliGenerati/mergedData_model.h5')
-class_names = ['crop', 'weed'] 
+# Funzione per caricare un modello
+def load_model():
+    model_path = filedialog.askopenfilename(filetypes=[("File del modello", "*.h5")])
+    if model_path:
+        try:
+            global model
+            model = tf.keras.models.load_model(model_path)
+            messagebox.showinfo("Successo", f"Modello caricato con successo: {os.path.basename(model_path)}")
+        except Exception as e:
+            messagebox.showerror("Errore", f"Impossibile caricare il modello: {e}")
+
+# Caricamento iniziale del modello
+model = None
+class_names = ['crop', 'weed']  # Aggiungi eventuali classi del tuo modello
 
 def process_image(img_path):
-    """
-    Preprocesses an image for model prediction.
-
-    Args:
-        img_path: Path to the image file.
-
-    Returns:
-        A NumPy array representing the preprocessed image.
-    """
     img = tf.keras.preprocessing.image.load_img(img_path, target_size=(139, 139))
     img_array = tf.keras.preprocessing.image.img_to_array(img)
     img_array = tf.image.resize(img_array, (139, 139))
     img_array = tf.expand_dims(img_array, axis=0)
     return img_array
 
-def generate_heatmap(img_array):
-    """
-    Generates a heatmap for the predicted class.
-
-    Args:
-        img_array: A NumPy array representing the preprocessed image.
-
-    Returns:
-        A tuple containing the heatmap and the predicted class index.
-    """
-    predicted_class = np.argmax(model.predict(img_array)[0])
-    last_conv_layer = model.get_layer('mixed10') 
-    heatmap_model = tf.keras.models.Model(model.inputs, [last_conv_layer.output, model.output])
-
-    with tf.GradientTape() as tape:
-        conv_outputs, predictions = heatmap_model(img_array)
-        loss = predictions[:, predicted_class]
-
-    grads = tape.gradient(loss, conv_outputs)
-    pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
-    heatmap = tf.reduce_mean(tf.multiply(pooled_grads, conv_outputs), axis=-1)
-    heatmap = np.maximum(heatmap, 0)
-
-    heatmap_resized = cv2.resize(heatmap, (139, 139))
-    return heatmap_resized, predicted_class
-
 def load_and_predict(file_path):
-    """
-    Loads an image, performs prediction and heatmap generation,
-    and updates the GUI elements.
-
-    Args:
-        file_path: Path to the image file.
-    """
     if not file_path:
         return
 
+    if model is None:
+        messagebox.showerror("Errore", "Carica prima un modello!")
+        return
+
     try:
-        # Process the image
         img_array = process_image(file_path) 
-        heatmap, predicted_class = generate_heatmap(img_array)
+        predicted_class = np.argmax(model.predict(img_array)[0])
 
         # Update label text
         label_result.config(text=f"Predizione: {class_names[predicted_class]}")
@@ -77,40 +49,50 @@ def load_and_predict(file_path):
         label_original.config(image=original_photo)
         label_original.image = original_photo
 
-        # Generate and display heatmap
-        heatmap_uint8 = (heatmap * 255).astype(np.uint8)
-        heatmap_colored = cv2.applyColorMap(heatmap_uint8, cv2.COLORMAP_JET)
-        heatmap_image = Image.fromarray(cv2.cvtColor(heatmap_colored, cv2.COLOR_BGR2RGB))
-        heatmap_resized = heatmap_image.resize((300, 300))
-        heatmap_photo = ImageTk.PhotoImage(heatmap_resized)
-        label_heatmap.config(image=heatmap_photo)
-        label_heatmap.image = heatmap_photo
-
     except Exception as e:
         messagebox.showerror("Errore", f"Si è verificato un errore: {e}")
 
 # Create the main window
 window = tk.Tk()
 window.title("Rilevamento Malattie delle Piante")
-window.geometry("800x600")
+window.geometry("850x550")
+window.config(bg="#f4f7f6")
+
+# Add a header frame
+header_frame = tk.Frame(window, bg="#4caf50", pady=10)
+header_frame.pack(fill="x")
+
+header_label = tk.Label(header_frame, text="Rilevamento Malattie delle Piante", font=("Helvetica", 20, "bold"), fg="white", bg="#4caf50")
+header_label.pack()
+
+# Button to load model
+btn_load_model = tk.Button(window, text="Carica Modello", command=load_model,
+                           font=("Helvetica", 12), bg="#4caf50", fg="white", relief="flat", width=20)
+btn_load_model.pack(pady=10)
 
 # Button to load image
-btn_load = tk.Button(window, text="Carica Immagine", command=lambda: load_and_predict(filedialog.askopenfilename(filetypes=[("Image files", "*.jpg *.jpeg *.png")])))
+btn_load = tk.Button(window, text="Carica Immagine", command=lambda: load_and_predict(filedialog.askopenfilename(filetypes=[("Image files", "*.jpg *.jpeg *.png")])),
+                     font=("Helvetica", 12), bg="#4caf50", fg="white", relief="flat", width=20)
 btn_load.pack(pady=20)
 
 # Label to display prediction result
-label_result = tk.Label(window, text="Predizione: ", font=("Arial", 16))
+label_result = tk.Label(window, text="Predizione: ", font=("Helvetica", 14), bg="#f4f7f6")
 label_result.pack(pady=10)
 
 # Frame for images
-frame_images = tk.Frame(window)
+frame_images = tk.Frame(window, bg="#f4f7f6")
 frame_images.pack(pady=20)
 
-# Labels to display original image and heatmap
-label_original = tk.Label(frame_images, text="Immagine Originale")
+# Labels to display original image
+label_original = tk.Label(frame_images, text="Immagine Originale", font=("Helvetica", 12), bg="#f4f7f6")
 label_original.pack(side=tk.LEFT, padx=20)
-label_heatmap = tk.Label(frame_images, text="Heatmap")
-label_heatmap.pack(side=tk.RIGHT, padx=20)
+
+# Add footer frame with a little more space
+footer_frame = tk.Frame(window, bg="#4caf50", pady=15)
+footer_frame.pack(fill="x", side="bottom")
+
+footer_label = tk.Label(footer_frame, text="© 2025 Rilevamento Malattie delle Piante", font=("Helvetica", 10), fg="white", bg="#4caf50")
+footer_label.pack()
 
 # Start the GUI event loop
 window.mainloop()

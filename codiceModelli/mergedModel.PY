@@ -18,7 +18,7 @@ import time
 
 import os
 
-directory = './datasets/pianteColture_Merged/train'
+directory = '../datasets/pianteColture_Merged/train'
 contents = os.listdir(directory)
 num_of_dirs = len([name for name in contents if os.path.isdir(os.path.join(directory, name))])
 
@@ -32,7 +32,7 @@ from PIL import Image
 import os
 
 # Define the directory path
-directory_path = './datasets/pianteColture_Merged/train'
+directory_path = '../datasets/pianteColture_Merged/train'
 
 # List all files in the directory
 file_names = os.listdir(directory_path)
@@ -80,7 +80,7 @@ class_outputs = Dense(num_classes, activation='softmax')(x)
 model = Model(inputs=base_model.input, outputs=class_outputs)
 
 # Compile the model
-model.compile(loss='binary_crossentropy', optimizer=Adam(0.001), metrics=['accuracy'])
+model.compile(loss='categorical_crossentropy', optimizer=Adam(0.001), metrics=['accuracy'])
 
 # Load the training data with aggressive data augmentation
 train_datagen = ImageDataGenerator(
@@ -95,7 +95,7 @@ train_datagen = ImageDataGenerator(
 )
 
 train_dataset = train_datagen.flow_from_directory(
-    './datasets/pianteColture_Merged/train',
+    '../datasets/pianteColture_Merged/train',
     target_size=(139, 139),
     batch_size=batch_size,
     class_mode='categorical'
@@ -114,7 +114,7 @@ val_datagen = ImageDataGenerator(
 )
 
 val_dataset = val_datagen.flow_from_directory(
-    './datasets/pianteColture_Merged/valid',
+    '../datasets/pianteColture_Merged/valid',
     target_size=(139, 139),
     batch_size=batch_size,
     class_mode='categorical'
@@ -135,7 +135,7 @@ lr_schedule = LearningRateScheduler(lr_scheduler)
 early_stop = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
 
 # Define model checkpoint to save the best model
-checkpoint = ModelCheckpoint('mergedData_model.h5', monitor='val_accuracy', save_best_only=True, mode='max', verbose=1)
+checkpoint = ModelCheckpoint('../modelliGenerati/mergedData_model.h5', monitor='val_accuracy', save_best_only=True, mode='max', verbose=1)
 # Define ReduceLROnPlateau callback
 reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=3, min_lr=1e-6)
 
@@ -148,12 +148,12 @@ history = model.fit(
 )
 
 # Save the model in native Keras format
-model.save('mergedData_model.keras')
+model.save('../modelliGenerati/mergedData_model.keras')
 
 import joblib
 
 # Save the model using joblib
-joblib.dump(model, 'mergedData_model.pkl')
+joblib.dump(model, '../modelliGenerati/mergedData_model.pkl')
 
 # Plot the metrics to visualize the training process
 import matplotlib.pyplot as plt
@@ -183,7 +183,7 @@ plot_metrics(history)
 test_datagen = ImageDataGenerator(rescale=1./255)
 
 test_dataset = test_datagen.flow_from_directory(
-    './datasets/pianteColture_Merged/test',
+    '../datasets/pianteColture_Merged/test',
     target_size=(139, 139),
     batch_size=batch_size,
     class_mode='categorical'
@@ -201,4 +201,4 @@ print(classification_report(y_pred_bool, rounded_labels, digits=4))
 print("Time taken to predict the model: " + str(time.time() - start_time))
 
 # Save the model
-model.save('mergedData_model.h5')
+model.save('../modelliGenerati/mergedData_model.h5')
